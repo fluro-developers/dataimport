@@ -1,6 +1,6 @@
 {
   "name": "nodetest",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -10,7 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "async": "^3.1.0",
-    "fluro": "^2.1.48",
+    "fluro": "^2.2.18",
     "inquirer": "^7.0.0",
     "lodash": "^4.17.15",
     "moment": "^2.24.0",

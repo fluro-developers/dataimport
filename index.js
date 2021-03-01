@@ -729,7 +729,7 @@ function findOrCreate(externalID, newItem, options, next) {
 
     var type = newItem.definition || newItem._type;
 
-    
+
     ////////////////////////////////////////////////
 
     if (!inflight[externalID]) {
@@ -743,7 +743,7 @@ function findOrCreate(externalID, newItem, options, next) {
 
             ////////////////////////////////////////////////
 
-            
+
             if (!type) {
                 console.log('NO TYPE!', newItem)
                 return reject('Cant create an item without a _type or definition');
@@ -807,17 +807,17 @@ function findOrCreate(externalID, newItem, options, next) {
 
         })
     } else {
-        console.log('-- existing inflight request', externalID)
+        //console.log('-- existing inflight request', externalID)
     }
 
 
     inflight[externalID]
         .then(function(itemID) {
-            console.log('Created', type, newItem.title, itemID)
+            //console.log('Created', type, newItem.title, itemID)
             return next(null, itemID);
         })
         .catch(function(err) {
-            console.log('BIG ERROR HERE', err);
+            //console.log('BIG ERROR HERE', err);
             return next(err);
         })
 
@@ -958,6 +958,8 @@ function importNote(row, defaultRealm, next) {
     //////////////////////////////////////////////////
     //////////////////////////////////////////////////
 
+    var firstName =_.get(row, NOTE_CONTACT_FIRST_NAME);
+    var lastName =_.get(row, NOTE_CONTACT_LAST_NAME);
 
     async.waterfall([
         function(next) {
@@ -965,10 +967,10 @@ function importNote(row, defaultRealm, next) {
             var newContact = {
                 _type: 'contact',
                 _external: externalParentID,
-                firstName: _.get(row, NOTE_CONTACT_FIRST_NAME),
-                lastName: _.get(row, NOTE_CONTACT_LAST_NAME),
-                gender:_.get(row, NOTE_CONTACT_GENDER) || 'unknown',
-                status:'draft',
+                firstName,
+                lastName,
+                gender: _.get(row, NOTE_CONTACT_GENDER) || 'unknown',
+                status: 'draft',
                 phoneNumbers: _.compact([_.get(row, NOTE_CONTACT_PHONE_NUMBER)]),
                 emails: _.compact([_.get(row, NOTE_CONTACT_EMAIL_ADDRESS)]),
                 realms: [defaultRealm],
@@ -1035,20 +1037,29 @@ function importNote(row, defaultRealm, next) {
             /////////////////////////////////////
 
             //Create a Unique ID
-            var start = `note-import-${newPost.title}`;
+            var start = `note-import-${dateString}-${authorName}-${firstName}-${lastName}-${newPost.title}`;
             var firstThreeCharacters = (_.get(row, NOTE_MESSAGE) || '').slice(0, 50);
-            var externalID = `${start}-${firstThreeCharacters}`;
+            var externalID = String(`${start}-${firstThreeCharacters}`).toLowerCase();
             newPost._external = externalID;
 
 
-            var key = `Importing (${count+1 }/${total}) ${newPost._id} ${newPost._external}`;
-            console.time(key)
+            // console.log('--------')
+            var key = `Importing Note (${count+1 }/${total}) ${firstName} ${lastName} - ${parent}`;
+            // console.log(key)
+            // console.time(key)
 
 
             return findOrCreate(externalID, newPost, null, function(err, result) {
 
+
+                // console.timeEnd(key)
+                if(err) {
+                    console.log('ERROR CREATING', err);
+                } else {
+                    console.log('created note', firstName, lastName, result, 'ext:', externalParentID)
+                }
                 count++;
-                console.timeEnd(key)
+               
 
                 return next(err, result);
             });
