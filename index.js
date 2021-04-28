@@ -36,6 +36,16 @@ var CHECKIN_CONTACT_LAST_NAME = 'Last_Name';
 var CHECKIN_CONTACT_DOB = 'Date_of_Birth';
 var CHECKIN_CONTACT_GENDER = 'Gender';
 
+//Keys for groups import data
+var GROUP_EXTERNAL_ID = 'Group';
+var GROUP_CONTACT_EXTERNAL_ID = 'Member ID'; //This should resolve to a unique id, (breeze id, or elvanto member id)
+var GROUP_TITLE = 'Group'; //'Event Title';
+var GROUP_POSITION = 'Position'; //'Event Title';
+var GROUP_CONTACT_FIRST_NAME = 'First Name';
+var GROUP_CONTACT_LAST_NAME = 'Last Name';
+var GROUP_CONTACT_DOB = 'Date of Birth';
+var GROUP_CONTACT_GENDER = 'Gender';
+
 
 //Keys for Headcount import data
 var HEADCOUNT_EVENT_DATE = 'Date'; //This should resolve to the date of the event
@@ -370,7 +380,12 @@ function importRows(rows, next) {
                         },
 
                         {
-                            name: 'Headcounts',
+                            name: 'Groups / Teams',
+                            value: 'groups',
+                        },
+
+                        {
+                            name: 'Attendance Headcounts',
                             value: 'headcount',
                         },
 
@@ -411,6 +426,9 @@ function importRows(rows, next) {
                                     return async.eachLimit(rows, CONCURRENCY, function(row, next) {
                                         return importNote(row, answers.realm, next);
                                     }, next);
+                                    break;
+                                case 'groups':
+                                    return groupAndImportGroupMembers(rows, answers.realm, next);
                                     break;
                                 case 'headcount':
                                     //We need to group all the entries into events
@@ -546,6 +564,45 @@ function importHeadcountEvent(row, defaultRealm, next) {
 
 ///////////////////////////////////////////////////
 
+function groupAndImportGroupMembers(rows, realm, next) {
+
+    /////////////////////////////
+
+    var grouped = _.reduce(rows, function(set, row) {
+
+        var externalGroupID = getExternalGroupID(row);
+
+        /////////////////////////////
+
+        var groupingKey = externalGroupID;
+        var existing = set[groupingKey];
+        if (!existing) {
+            existing = set[groupingKey] = {
+                externalGroupID,
+                members: [],
+                realm,
+                row,
+            }
+        }
+
+        existing.members.push(row);
+
+        /////////////////////////////
+
+        return set;
+    }, {});
+
+    /////////////////////////////
+
+
+    return async.eachLimit(grouped, 1, function(group, next) {
+        return importGroupMembers(group, realm, next);
+    }, next);
+
+}
+
+
+
 function groupAndImportCheckins(rows, realm, next) {
 
     /////////////////////////////
@@ -586,6 +643,19 @@ function groupAndImportCheckins(rows, realm, next) {
 ///////////////////////////////////////////////////
 ///////////////////////////////////////////////////
 
+function getExternalGroupID(row) {
+    var externalGroupID = row[GROUP_EXTERNAL_ID] || _.get(row, GROUP_EXTERNAL_ID);
+
+    if (!externalGroupID) {
+        console.log('INVALID OR COULD NOT MAP EXTERNAL GROUP ID! CSV MAY BE CORRUPTED OR EVENT EXTERNAL ID PATH IS INCORRECT')
+        return process.exit();
+    }
+
+    return externalGroupID;
+
+}
+
+///////////////////////////////////////////////////
 
 function getExternalEventID(row, type) {
 
@@ -596,7 +666,7 @@ function getExternalEventID(row, type) {
 
     switch (type) {
         case 'headcount':
-            externalEventID = row[HEADCOUNT_EVENT_EXTERNAL_ID], _.get(row, HEADCOUNT_EVENT_EXTERNAL_ID);
+            externalEventID = row[HEADCOUNT_EVENT_EXTERNAL_ID] || _.get(row, HEADCOUNT_EVENT_EXTERNAL_ID);
             break;
         case 'checkin':
             externalEventID = row[CHECKIN_EVENT_EXTERNAL_ID] || _.get(row, CHECKIN_EVENT_EXTERNAL_ID);
@@ -639,6 +709,135 @@ function getExternalContactID(row, type) {
 }
 
 
+//Import an event with all of it's checkins
+function importGroupMembers(group, defaultRealm, next) {
+
+    //Get the External ID of the event
+    var externalGroupID = group.externalGroupID;
+
+    //////////////////////////////////////////////
+
+    //If we cant find the group
+    //we need to create it
+    var row = group.row;
+
+    //////////////////////////////////////////////
+
+    //Add tags
+    // var tags = _.get(row, 'Categories');
+    // if (tags && tags.length) {
+    //     tags = _.chain(splitString(tags, ',|;'))
+    //         .compact()
+    //         .map(function(string) {
+    //             return string.trim();
+    //         })
+    //         .compact()
+    //         .uniq()
+    //         .value();
+    // }
+
+    //////////////////////////////////////////////
+
+    var newGroup = {
+        title: `${_.get(row, GROUP_TITLE)}`,
+        _external: externalGroupID,
+        _type: 'team',
+        // tags: tags,
+        realms: [defaultRealm],
+        data: {
+            groupImport: row,
+        },
+        provisionalMembers: [],
+    }
+
+    ///////////////////////////////////////
+
+    var assignmentRows = {};
+
+    ///////////////////////////////////////
+
+    return async.eachLimit(group.members, CONCURRENCY, function(member, next) {
+
+        //Get all the details for the contact
+        var contactExternalID = _.get(member, GROUP_CONTACT_EXTERNAL_ID);
+        var firstName = _.get(member, GROUP_CONTACT_FIRST_NAME);
+        var lastName = _.get(member, GROUP_CONTACT_LAST_NAME);
+        var dob = _.get(member, GROUP_CONTACT_DOB);
+        var gender = _.get(member, GROUP_CONTACT_GENDER);
+        var position = _.get(member, GROUP_POSITION);
+
+        // //Keys for groups import data
+        // var GROUP_EXTERNAL_ID = 'Group';
+        // var GROUP_CONTACT_EXTERNAL_ID = 'Member ID'; //This should resolve to a unique id, (breeze id, or elvanto member id)
+        // var GROUP_TITLE = 'Group'; //'Event Title';
+        // var GROUP_POSITION = 'Position'; //'Event Title';
+        // var GROUP_CONTACT_FIRST_NAME = 'First Name';
+        // var GROUP_CONTACT_LAST_NAME = 'Last Name';
+        // var GROUP_CONTACT_DOB = 'Date of Birth';
+        // var GROUP_CONTACT_GENDER = 'Gender';
+
+        var contactData = {
+            firstName,
+            lastName,
+            dob:dob ? new Date(dob) : undefined,
+            gender,
+            _type:'contact',
+            realms: [defaultRealm],
+            _external: contactExternalID,
+        }
+
+
+        return findOrCreate(contactExternalID, contactData, null, function(err, contactID) {
+            if (err) {
+                return next();
+            }
+
+            //Add the contact to the provisional members
+            if (!position || !position.length) {
+                newGroup.provisionalMembers.push(contactID);
+                return next();
+            }
+
+            //Add the contact to the relevant assignment row
+            var positionKey = _.camelCase(position);
+            if (!assignmentRows[positionKey]) {
+                assignmentRows[positionKey] = {
+                    title: position,
+                    contacts: [],
+                }
+            }
+
+            ////////////////////////////
+            assignmentRows[positionKey].contacts.push(contactID);
+
+            return next();
+
+        });
+
+
+        // //Use the fluro event id
+        // checkinData.event = eventID;
+        // return importCheckin(checkinData, defaultRealm, next);
+    }, function(err, results) {
+        if (err) {
+            return next(err);
+        }
+
+        //Now we should have all the bits to create the group
+        newGroup.assignments = _.values(assignmentRows);
+
+        return findOrCreate(externalGroupID, newGroup, null, function(err, groupID) {
+            if (err) {
+                console.log('skip group due to error', err);
+                return next();
+                // return next(err);
+            }
+
+            console.log('---- Create Group', groupID, newGroup.provisionalMembers.length, 'members',  newGroup.assignments.length, 'assignments');
+            return next();
+        });
+    });
+}
 
 //Import an event with all of it's checkins
 function importEventCheckins(group, defaultRealm, next) {
@@ -942,6 +1141,10 @@ function importCheckin(row, defaultRealm, done) {
     }
 }
 
+
+///////////////////////////////////////////////////
+
+
 ///////////////////////////////////////////////////
 
 function importNote(row, defaultRealm, next) {
@@ -958,8 +1161,8 @@ function importNote(row, defaultRealm, next) {
     //////////////////////////////////////////////////
     //////////////////////////////////////////////////
 
-    var firstName =_.get(row, NOTE_CONTACT_FIRST_NAME);
-    var lastName =_.get(row, NOTE_CONTACT_LAST_NAME);
+    var firstName = _.get(row, NOTE_CONTACT_FIRST_NAME);
+    var lastName = _.get(row, NOTE_CONTACT_LAST_NAME);
 
     async.waterfall([
         function(next) {
@@ -1053,13 +1256,13 @@ function importNote(row, defaultRealm, next) {
 
 
                 // console.timeEnd(key)
-                if(err) {
+                if (err) {
                     console.log('ERROR CREATING', err);
                 } else {
                     console.log('created note', firstName, lastName, result, 'ext:', externalParentID)
                 }
                 count++;
-               
+
 
                 return next(err, result);
             });
