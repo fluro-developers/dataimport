@@ -1,5 +1,7 @@
-Group,Person,Position,Member ID,First Name,Last Name,Gender,Date of Birth
-Example Group One,"John, Jefferson",Leader,e740748a-e31e-4aa0-a501-6e466ca9384f,John,Jefferson,Male,19/01/2020
-Example Group One,"Susan, Jefferson",,e340748a-e31e-5aa2-a501-6e466ca9384f,Susan,Jefferson,Female,22/01/2020
-Example Group Two,"Gary, Rogers",Leader,e840748a-e31e-4ba7-a501-6e466ca9384f,Gary,Rogers,Male,12/01/2020
-Example Group Two,"John, Jefferson",,e240748a-e31e-4aa3-a501-6e466ca9384f,John,Jefferson,Male,10/01/2020
+Group,Person,Position,Member ID,First Name,Last Name,Gender,Date of Birth,Merge
+Example Group One,"John, Jefferson",Leader,e740748a-e31e-4aa0-a501-6e466ca9384f,John,Jefferson,Male,19/01/2020,TRUE
+Example Group One,"Michael, Jefferson",Leader,e7420748a-e31e-4aa0-a501-6e466ca9386f,Michael,Jefferson,Male,28/01/2020,TRUE
+Example Group One,"Sally, Johnson",,e744e466ca9386f,Sally,Johnson,Female,28/01/2020,TRUE
+Example Group One,"Susan, Jefferson",,e340748a-e31e-5aa2-a501-6e466ca9384f,Susan,Jefferson,Female,22/01/2020,Yes
+Example Group Two,"Gary, Rogers",Leader,e840748a-e31e-4ba7-a501-6e466ca9384f,Gary,Rogers,Male,12/01/2020,1
+Example Group Two,"John, Jefferson",,e240748a-e31e-4aa3-a501-6e466ca9384f,John,Jefferson,Male,10/01/2020,

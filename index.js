@@ -753,6 +753,8 @@ function importGroupMembers(group, defaultRealm, next) {
     ///////////////////////////////////////
 
     var assignmentRows = {};
+    var requiresMerge = _.get(row, 'Merge') || _.get(row, 'merge');
+    console.log('Requires Merge!', requiresMerge, row.title);
 
     ///////////////////////////////////////
 
@@ -779,9 +781,9 @@ function importGroupMembers(group, defaultRealm, next) {
         var contactData = {
             firstName,
             lastName,
-            dob:dob ? new Date(dob) : undefined,
+            dob: dob ? new Date(dob) : undefined,
             gender,
-            _type:'contact',
+            _type: 'contact',
             realms: [defaultRealm],
             _external: contactExternalID,
         }
@@ -826,14 +828,15 @@ function importGroupMembers(group, defaultRealm, next) {
         //Now we should have all the bits to create the group
         newGroup.assignments = _.values(assignmentRows);
 
-        return findOrCreate(externalGroupID, newGroup, null, function(err, groupID) {
+        console.log('Create Group')
+        return findOrCreate(externalGroupID, newGroup, { merge: requiresMerge }, function(err, groupID) {
             if (err) {
                 console.log('skip group due to error', err);
                 return next();
                 // return next(err);
             }
 
-            console.log('---- Create Group', groupID, newGroup.provisionalMembers.length, 'members',  newGroup.assignments.length, 'assignments');
+            console.log('---- Create Group', groupID, newGroup.provisionalMembers.length, 'members', newGroup.assignments.length, 'assignments');
             return next();
         });
     });
@@ -948,6 +951,12 @@ function findOrCreate(externalID, newItem, options, next) {
                 return reject('Cant create an item without a _type or definition');
             }
 
+            if (options.merge) {
+                console.log('Requires Merge')
+                //We need to merge so skip the external id checking
+                return createItem();
+            }
+
             ////////////////////////////////////////////////
 
 
@@ -973,24 +982,28 @@ function findOrCreate(externalID, newItem, options, next) {
 
             function createItem(err) {
 
-                if (!err.response) {
-                    console.log('BIG FAILED ISSUE', err);
-                    return reject('BIG FAIL');
-                }
+                if (err) {
+                    if (!err.response) {
+                        console.log('BIG FAILED ISSUE', err);
+                        return reject('BIG FAIL');
+                    }
 
 
-                if (err.response.status != 404) {
-                    console.log('IMPORT ERROR', type, err.response.status, err.response.statusText, err.response.data);
-                    // console.log(`Count not find event with external id: ${externalEventID}`, row)
-                    return reject(err);
+                    if (err.response.status != 404) {
+                        console.log('IMPORT ERROR', type, err.response.status, err.response.statusText, err.response.data);
+                        // console.log(`Count not find event with external id: ${externalEventID}`, row)
+                        return reject(err);
+                    }
                 }
 
                 //////////////////////////////////////////////
 
+                var shouldNotMergeAndForceCreate = (newItem.merge || options.merge) ? undefined : true;
 
+                console.log('IMPORTING NO MERGE?', newItem.title, shouldNotMergeAndForceCreate)
                 return fluro.api.post('/content/_import', newItem, {
                         params: {
-                            noMerge: true,
+                            noMerge:shouldNotMergeAndForceCreate,
                             title: newItem.title,
                         }
                     })
