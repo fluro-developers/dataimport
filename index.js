@@ -676,7 +676,7 @@ function getExternalEventID(row, type) {
 
 
     if (!externalEventID) {
-        console.log('INVALID OR COULD NOT MAP EXTERNAL EVENT ID! CSV MAY BE CORRUPTED OR EVENT EXTERNAL ID PATH IS INCORRECT')
+        console.log(`INVALID OR COULD NOT MAP EXTERNAL EVENT ID! CSV MAY BE CORRUPTED OR EVENT EXTERNAL ID PATH IS INCORRECT`)
         return process.exit();
     }
 
